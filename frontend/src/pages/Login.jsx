@@ -89,7 +89,7 @@ export default function Login() {
 
         {/* Demo credentials */}
         <div className="mt-4 bg-slate-800/50 rounded-xl border border-slate-700 p-4 text-xs text-slate-400">
-          <p className="font-medium text-slate-300 mb-2">Demo accounts:</p>
+          <p className="font-medium text-slate-300 mb-2">Demo accounts: Use this credentials</p>
           <p>Admin: admin@demo.com / admin123</p>
           <p>Editor: editor@demo.com / editor123</p>
           <p>Viewer: viewer@demo.com / viewer123</p>
