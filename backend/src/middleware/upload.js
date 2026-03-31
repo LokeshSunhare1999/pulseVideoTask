@@ -3,7 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
-const UPLOAD_DIR = path.join(__dirname, '../../', process.env.UPLOAD_DIR || 'uploads');
+const UPLOAD_DIR = process.env.UPLOAD_DIR
+  ? path.isAbsolute(process.env.UPLOAD_DIR)
+    ? process.env.UPLOAD_DIR
+    : path.join(__dirname, '../../', process.env.UPLOAD_DIR)
+  : path.join(__dirname, '../../uploads');
 
 // Ensure upload directory exists
 if (!fs.existsSync(UPLOAD_DIR)) {
