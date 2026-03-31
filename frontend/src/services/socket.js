@@ -4,7 +4,8 @@ let socket = null;
 
 export const getSocket = () => {
   if (!socket) {
-    socket = io('http://localhost:5000', {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+    socket = io(backendUrl, {
       autoConnect: false,
       transports: ['websocket', 'polling'],
     });
