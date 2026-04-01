@@ -29,19 +29,23 @@ router.post(
       const { title, description, tags, category } = req.body;
 
       if (!title) {
-        // Clean up uploaded file
-        fs.unlinkSync(req.file.path);
         return res.status(400).json({ message: 'Title is required' });
       }
+
+      // Cloudinary storage: req.file.path = secure URL, req.file.filename = public_id
+      // Local storage fallback: req.file.path = disk path
+      const isCloudinary = req.file.path && req.file.path.startsWith('http');
 
       const video = await Video.create({
         title,
         description: description || '',
-        filename: req.file.filename,
+        filename: req.file.filename || req.file.originalname,
         originalName: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        filePath: req.file.path,
+        filePath: req.file.path,          // Cloudinary URL or local disk path
+        cloudinaryPublicId: isCloudinary ? req.file.filename : null,
+        storageType: isCloudinary ? 'cloudinary' : 'local',
         status: 'uploaded',
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         category: category || 'Uncategorized',
@@ -64,10 +68,6 @@ router.post(
         },
       });
     } catch (err) {
-      // Clean up on error
-      if (req.file && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
       console.error('Upload error:', err);
       res.status(500).json({ message: err.message || 'Upload failed' });
     }
@@ -188,12 +188,15 @@ router.delete('/:id', authenticate, authorize('editor', 'admin'), async (req, re
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // Delete file from disk
-    if (fs.existsSync(video.filePath)) {
+    // Delete from Cloudinary or local disk
+    if (video.storageType === 'cloudinary' && video.cloudinaryPublicId) {
+      const cloudinary = require('../services/cloudinary');
+      await cloudinary.uploader.destroy(video.cloudinaryPublicId, { resource_type: 'video' });
+    } else if (video.filePath && fs.existsSync(video.filePath)) {
       fs.unlinkSync(video.filePath);
-    }
-    if (video.thumbnailPath && fs.existsSync(video.thumbnailPath)) {
-      fs.unlinkSync(video.thumbnailPath);
+      if (video.thumbnailPath && fs.existsSync(video.thumbnailPath)) {
+        fs.unlinkSync(video.thumbnailPath);
+      }
     }
 
     await Video.findByIdAndDelete(req.params.id);
@@ -203,13 +206,12 @@ router.delete('/:id', authenticate, authorize('editor', 'admin'), async (req, re
   }
 });
 
-// GET /api/videos/:id/stream - Stream video with HTTP range requests
+// GET /api/videos/:id/stream - Stream video (redirect to Cloudinary or serve local)
 router.get('/:id/stream', authenticate, async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
     if (!video) return res.status(404).json({ message: 'Video not found' });
 
-    // Access control
     if (req.user.role !== 'admin' && video.owner.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -218,6 +220,12 @@ router.get('/:id/stream', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'Video is not ready for streaming' });
     }
 
+    // Cloudinary: redirect to the CDN URL directly
+    if (video.storageType === 'cloudinary' || (video.filePath && video.filePath.startsWith('http'))) {
+      return res.redirect(video.filePath);
+    }
+
+    // Local disk streaming with range request support
     if (!fs.existsSync(video.filePath)) {
       return res.status(404).json({ message: 'Video file not found' });
     }
@@ -227,24 +235,19 @@ router.get('/:id/stream', authenticate, async (req, res) => {
     const range = req.headers.range;
 
     if (range) {
-      // Parse range header: "bytes=start-end"
       const parts = range.replace(/bytes=/, '').split('-');
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
       const chunkSize = end - start + 1;
-
       const fileStream = fs.createReadStream(video.filePath, { start, end });
-
       res.writeHead(206, {
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': chunkSize,
         'Content-Type': video.mimetype,
       });
-
       fileStream.pipe(res);
     } else {
-      // No range: send full file
       res.writeHead(200, {
         'Content-Length': fileSize,
         'Content-Type': video.mimetype,

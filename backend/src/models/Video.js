@@ -86,6 +86,15 @@ const videoSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    cloudinaryPublicId: {
+      type: String,
+      default: null,
+    },
+    storageType: {
+      type: String,
+      enum: ['local', 'cloudinary'],
+      default: 'local',
+    },
     thumbnailPath: {
       type: String,
       default: null,

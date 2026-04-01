@@ -1,34 +1,16 @@
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../services/cloudinary');
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR
-  ? path.isAbsolute(process.env.UPLOAD_DIR)
-    ? process.env.UPLOAD_DIR
-    : path.join(__dirname, '../../', process.env.UPLOAD_DIR)
-  : path.join(__dirname, '../../uploads');
-
-// Ensure upload directory exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Organize by user organization
-    const orgDir = path.join(UPLOAD_DIR, req.user.organization);
-    if (!fs.existsSync(orgDir)) {
-      fs.mkdirSync(orgDir, { recursive: true });
-    }
-    cb(null, orgDir);
-  },
-  filename: (req, file, cb) => {
-    // Secure naming: uuid + original extension
-    const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueName = `${uuidv4()}${ext}`;
-    cb(null, uniqueName);
-  },
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => ({
+    folder: `videovault/${req.user.organization}`,
+    resource_type: 'video',
+    allowed_formats: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'ogg', 'mpeg'],
+    // Use original filename base + timestamp for uniqueness
+    public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '').replace(/\s+/g, '_')}`,
+  }),
 });
 
 const fileFilter = (req, file, cb) => {
@@ -41,11 +23,10 @@ const fileFilter = (req, file, cb) => {
     'video/webm',
     'video/ogg',
   ];
-
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error(`File type '${file.mimetype}' is not supported. Please upload a video file.`), false);
+    cb(new Error(`File type '${file.mimetype}' is not supported.`), false);
   }
 };
 
@@ -53,8 +34,11 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 524288000, // 500MB default
+    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 524288000, // 500MB
   },
 });
+
+// Keep UPLOAD_DIR export for backward compat (not used for cloud storage)
+const UPLOAD_DIR = null;
 
 module.exports = { upload, UPLOAD_DIR };
