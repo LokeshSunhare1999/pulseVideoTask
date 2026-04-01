@@ -39,7 +39,7 @@ export default function Register() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white">Create account</h1>
-          <p className="text-slate-400 mt-1">Join VideoVault</p>
+          <p className="text-slate-400 mt-1">Join Pulse Video</p>
         </div>
 
         <div className="bg-slate-800 rounded-2xl border border-slate-700 p-8">

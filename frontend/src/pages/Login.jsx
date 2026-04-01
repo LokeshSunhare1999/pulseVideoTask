@@ -34,7 +34,7 @@ export default function Login() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-          <p className="text-slate-400 mt-1">Sign in to VideoVault</p>
+          <p className="text-slate-400 mt-1">Sign in to Pulse Video</p>
         </div>
 
         <div className="bg-slate-800 rounded-2xl border border-slate-700 p-8">
