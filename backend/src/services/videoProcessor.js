@@ -99,7 +99,9 @@ const processVideo = async (videoId, io) => {
     await sleep(500);
     emitProgress(10, 'Validating file...');
 
-    if (!fs.existsSync(video.filePath)) {
+    const isCloudinary = video.filePath && video.filePath.startsWith('http');
+
+    if (!isCloudinary && !fs.existsSync(video.filePath)) {
       throw new Error('Video file not found on disk');
     }
 
@@ -107,7 +109,9 @@ const processVideo = async (videoId, io) => {
     await sleep(500);
     emitProgress(25, 'Extracting metadata...');
 
-    const metadata = await extractMetadata(video.filePath);
+    const metadata = isCloudinary
+      ? { duration: 0, width: 0, height: 0 }
+      : await extractMetadata(video.filePath);
 
     await Video.findByIdAndUpdate(videoId, {
       duration: Math.round(metadata.duration),
@@ -116,12 +120,15 @@ const processVideo = async (videoId, io) => {
     });
     emitProgress(35, 'Metadata extracted');
 
-    // Stage 4: Generate thumbnail
+    // Stage 4: Generate thumbnail (local only; Cloudinary videos use CDN thumbnail)
     await sleep(800);
     emitProgress(50, 'Generating thumbnail...');
 
-    const outputDir = path.dirname(video.filePath);
-    const thumbPath = await generateThumbnail(video.filePath, outputDir, video.filename);
+    let thumbPath = null;
+    if (!isCloudinary) {
+      const outputDir = path.dirname(video.filePath);
+      thumbPath = await generateThumbnail(video.filePath, outputDir, video.filename);
+    }
 
     await Video.findByIdAndUpdate(videoId, {
       thumbnailPath: thumbPath,

@@ -216,13 +216,13 @@ router.get('/:id/stream', authenticate, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    if (video.status !== 'completed') {
-      return res.status(400).json({ message: 'Video is not ready for streaming' });
-    }
-
-    // Cloudinary: redirect to the CDN URL directly
+    // Cloudinary: redirect to the CDN URL directly (no status check needed)
     if (video.storageType === 'cloudinary' || (video.filePath && video.filePath.startsWith('http'))) {
       return res.redirect(video.filePath);
+    }
+
+    if (video.status !== 'completed') {
+      return res.status(400).json({ message: 'Video is not ready for streaming' });
     }
 
     // Local disk streaming with range request support
