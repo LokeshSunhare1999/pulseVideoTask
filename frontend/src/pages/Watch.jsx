@@ -344,7 +344,13 @@ export default function Watch() {
         {/* Video player */}
         <div className="lg:col-span-2">
           {video?.status === 'completed' ? (
-            <VideoPlayer src={`/api/videos/${id}/stream?token=${localStorage.getItem('token')}`} />
+            <VideoPlayer
+              src={
+                video.storageType === 'cloudinary' || video.filePath?.startsWith('http')
+                  ? video.filePath
+                  : `${import.meta.env.VITE_BACKEND_URL || ''}/api/videos/${id}/stream?token=${localStorage.getItem('token')}`
+              }
+            />
           ) : (
             <div className="aspect-video flex flex-col items-center justify-center bg-slate-900 rounded-xl">
               {video?.status === 'processing' || processing ? (
